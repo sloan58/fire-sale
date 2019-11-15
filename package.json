@@ -1,0 +1,21 @@
+{
+  "name": "fire-sale",
+  "version": "1.0.0",
+  "description": "",
+  "main": "app/main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "nodemon --watch . --exec \"electron . --debug\"",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "electron": "^7.1.1",
+    "marked": "^0.7.0"
+  },
+  "devDependencies": {
+    "nodemon": "^1.19.4"
+  }
+}
