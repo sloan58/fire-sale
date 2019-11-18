@@ -17,12 +17,12 @@ const getFileFromUser = (exports.getFileFromUser = targetWindow => {
     })
 })
 
-const openFile = (targetWindow, file) => {
+const openFile = (exports.openFile = (targetWindow, file) => {
   const content = fs.readFileSync(file).toString()
   app.addRecentDocument(file)
   targetWindow.setRepresentedFilename(file)
   targetWindow.webContents.send('file-opened', file, content)
-}
+})
 
 const createWindow = (exports.createWindow = () => {
   let x, y
@@ -54,6 +54,50 @@ const createWindow = (exports.createWindow = () => {
   })
   windows.add(newWindow)
   return newWindow
+})
+
+const saveHtml = (exports.saveHtml = (targetWindow, content) => {
+  dialog
+    .showSaveDialog(targetWindow, {
+      title: 'Save HTML',
+      defaultPath: app.getPath('documents'),
+      filters: [{ name: 'HTML Files', extensions: ['html', 'htm'] }]
+    })
+    .then(file => {
+      if (file.canceled) return
+      try {
+        fs.writeFileSync(file.filePath, content)
+      } catch (err) {
+        console.log(err.message)
+      }
+    })
+})
+
+const saveMarkdown = (exports.saveMarkdown = (targetWindow, file, content) => {
+  if (!file) {
+    dialog
+      .showSaveDialog(targetWindow, {
+        title: 'Save Markdown',
+        defaultPath: app.getPath('documents'),
+        filters: [{ name: 'Markdown Files', extensions: ['md', 'markdown'] }]
+      })
+      .then(file => {
+        if (file.canceled) return
+        try {
+          fs.writeFileSync(file.filePath, content)
+          openFile(targetWindow, file)
+        } catch (err) {
+          console.log(err.message)
+        }
+      })
+  } else {
+    try {
+      fs.writeFileSync(file, content)
+      openFile(targetWindow, file)
+    } catch (err) {
+      console.log(err.message)
+    }
+  }
 })
 
 app.on('ready', () => {
