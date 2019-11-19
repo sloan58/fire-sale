@@ -45,6 +45,14 @@ const updateUserInterface = isEdited => {
   revertButton.disabled = !isEdited
 }
 
+const renderFile = (file, content) => {
+  filePath = file
+  originalContent = content
+  markdownView.value = content
+  renderMarkdownToHtml(content)
+  updateUserInterface(false)
+}
+
 markdownView.addEventListener('keyup', event => {
   const currentContent = event.target.value
   renderMarkdownToHtml(currentContent)
@@ -62,6 +70,45 @@ ipcRenderer.on('file-opened', (event, file, content) => {
   renderMarkdownToHtml(content)
 
   updateUserInterface()
+})
+
+ipcRenderer.on('file-opened', (event, file, content) => {
+  if (currentWindow.isDocumentEdited()) {
+    const result = remote.dialog
+      .showMessageBox(currentWindow, {
+        type: 'warning',
+        title: 'Overwrite Current Unsaved Changes?',
+        message:
+          'Opening a new file in this window will overwrite your unsaved changes. Open this file anyway?',
+        buttons: ['Yes', 'Cancel'],
+        defaultId: 0,
+        cancelId: 1
+      })
+      .then(({ response }) => {
+        if (response === 1) {
+          return
+        }
+        renderFile(file, content)
+      })
+  }
+})
+
+ipcRenderer.on('file-changed', (event, file, content) => {
+  console.log('renderer')
+  const result = remote.dialog
+    .showMessageBox(currentWindow, {
+      type: 'warning',
+      title: 'Overwrite Current Unsaved Changes?',
+      message: 'Another application has changed this file. Load changes?',
+      buttons: ['Yes', 'Cancel'],
+      defaultId: 0,
+      cancelId: 1
+    })
+    .then(({ response }) => {
+      if (response === 0) {
+        renderFile(file, content)
+      }
+    })
 })
 
 newFileButton.addEventListener('click', () => {

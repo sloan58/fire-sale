@@ -2,6 +2,7 @@ const { app, BrowserWindow, dialog } = require('electron')
 const fs = require('fs')
 
 const windows = new Set()
+const openFiles = new Map()
 
 const getFileFromUser = (exports.getFileFromUser = targetWindow => {
   const files = dialog
@@ -11,9 +12,9 @@ const getFileFromUser = (exports.getFileFromUser = targetWindow => {
         { name: 'Markdown Files', extensions: ['md', 'markdown', 'txt'] }
       ]
     })
-    .then(files => {
-      if (files.canceled) return
-      openFile(targetWindow, files.filePaths[0])
+    .then(({ canceled, filePaths }) => {
+      if (canceled) return
+      openFile(targetWindow, filePaths[0])
     })
 })
 
@@ -22,6 +23,7 @@ const openFile = (exports.openFile = (targetWindow, file) => {
   app.addRecentDocument(file)
   targetWindow.setRepresentedFilename(file)
   targetWindow.webContents.send('file-opened', file, content)
+  startWatchingFile(targetWindow, file)
 })
 
 const createWindow = (exports.createWindow = () => {
@@ -45,14 +47,39 @@ const createWindow = (exports.createWindow = () => {
   })
 
   newWindow.loadFile(`${__dirname}/index.html`)
+
   newWindow.once('ready-to-show', () => {
     newWindow.show()
   })
+
+  newWindow.on('close', event => {
+    if (newWindow.isDocumentEdited()) {
+      event.preventDefault()
+      const result = dialog
+        .showMessageBox(newWindow, {
+          type: 'warning',
+          title: 'Quit with Unsaved Changes?',
+          message: 'Your changes will be lost if you do not save.',
+          buttons: ['Quit Anyway', 'Cancel'],
+          defaultId: 0,
+          cancelId: 1
+        })
+        .then(({ response }) => {
+          if (response === 0) {
+            newWindow.destroy()
+          }
+        })
+    }
+  })
+
   newWindow.on('closed', () => {
     windows.delete(newWindow)
+    stopWatchingFile(newWindow)
     newWindow = null
   })
+
   windows.add(newWindow)
+
   return newWindow
 })
 
@@ -63,10 +90,10 @@ const saveHtml = (exports.saveHtml = (targetWindow, content) => {
       defaultPath: app.getPath('documents'),
       filters: [{ name: 'HTML Files', extensions: ['html', 'htm'] }]
     })
-    .then(file => {
-      if (file.canceled) return
+    .then(({ canceled, filePath }) => {
+      if (canceled) return
       try {
-        fs.writeFileSync(file.filePath, content)
+        fs.writeFileSync(filePath, content)
       } catch (err) {
         console.log(err.message)
       }
@@ -81,10 +108,10 @@ const saveMarkdown = (exports.saveMarkdown = (targetWindow, file, content) => {
         defaultPath: app.getPath('documents'),
         filters: [{ name: 'Markdown Files', extensions: ['md', 'markdown'] }]
       })
-      .then(file => {
-        if (file.canceled) return
+      .then(({ canceled, filePath }) => {
+        if (canceled) return
         try {
-          fs.writeFileSync(file.filePath, content)
+          fs.writeFileSync(filePath, content)
           openFile(targetWindow, file)
         } catch (err) {
           console.log(err.message)
@@ -99,6 +126,24 @@ const saveMarkdown = (exports.saveMarkdown = (targetWindow, file, content) => {
     }
   }
 })
+
+const startWatchingFile = (targetWindow, file) => {
+  stopWatchingFile(targetWindow)
+  const watcher = fs.watch(file, (eventType, filename) => {
+    if (eventType === 'change') {
+      const content = fs.readFileSync(file).toString()
+      targetWindow.webContents.send('file-changed', file, content)
+    }
+  })
+  openFiles.set(targetWindow, watcher)
+}
+
+const stopWatchingFile = targetWindow => {
+  if (openFiles.has(targetWindow)) {
+    openFiles.get(targetWindow).stop()
+    openFiles.delete(targetWindow)
+  }
+}
 
 app.on('ready', () => {
   createWindow()
