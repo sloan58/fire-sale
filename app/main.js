@@ -1,4 +1,5 @@
-const { app, BrowserWindow, dialog } = require('electron')
+const { app, BrowserWindow, dialog, Menu } = require('electron')
+const applicationMenu = require('./application-menu')
 const fs = require('fs')
 
 const windows = new Set()
@@ -146,6 +147,7 @@ const stopWatchingFile = targetWindow => {
 }
 
 app.on('ready', () => {
+  Menu.setApplicationMenu(applicationMenu)
   createWindow()
 })
 
