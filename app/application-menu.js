@@ -1,6 +1,59 @@
-const { app, BrowserWindow, Menu, shell } = require('electron')
+const { app, dialog, Menu, MenuItem, shell } = require('electron')
 const mainProcess = require('./main')
 const template = [
+  {
+    label: 'File',
+    submenu: [
+      {
+        label: 'New File',
+        accelerator: 'CommandOrControl+N',
+        click() {
+          mainProcess.createWindow()
+        }
+      },
+      {
+        label: 'Open File',
+        accelerator: 'CommandOrControl+O',
+        click(item, focusedWindow) {
+          if (focusedWindow) {
+            return mainProcess.getFileFromUser(focusedWindow)
+          }
+
+          const newWindow = mainProcess.createWindow()
+
+          newWindow.on('show', () => {
+            mainProcess.getFileFromUser(newWindow)
+          })
+        }
+      },
+      {
+        label: 'Save File',
+        accelerator: 'CommandOrControl+S',
+        click(item, focusedWindow) {
+          if (!focusedWindow) {
+            return dialog.showErrorBox(
+              'Cannot Save or Export',
+              'There is currently no active document to save or export.'
+            )
+          }
+          focusedWindow.webContents.send('save-markdown')
+        }
+      },
+      {
+        label: 'Export HTML',
+        accelerator: 'Shift+CommandOrControl+S',
+        click(item, focusedWindow) {
+          if (!focusedWindow) {
+            return dialog.showErrorBox(
+              'Cannot Save or Export',
+              'There is currently no active document to save or export.'
+            )
+          }
+          focusedWindow.webContents.send('save-html')
+        }
+      }
+    ]
+  },
   {
     label: 'Edit',
     submenu: [

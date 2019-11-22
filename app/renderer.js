@@ -1,4 +1,5 @@
 const { remote, ipcRenderer } = require('electron')
+const { Menu } = remote
 const mainProcess = remote.require('./main.js')
 const marked = require('marked')
 const markdownView = document.querySelector('#markdown')
@@ -21,6 +22,20 @@ const currentWindow = remote.getCurrentWindow()
 
 let filePath = null
 let originalContent = ''
+
+const markdownContextMenu = Menu.buildFromTemplate([
+  {
+    label: 'Open File',
+    click() {
+      mainProcess.getFileFromUser(currentWindow)
+    }
+  },
+  { type: 'separator' },
+  { label: 'Cut', role: 'cut' },
+  { label: 'Copy', role: 'copy' },
+  { label: 'Paste', role: 'paste' },
+  { label: 'Select All', role: 'selectall' }
+])
 
 const renderMarkdownToHtml = markdown => {
   htmlView.innerHTML = marked(markdown)
@@ -59,8 +74,20 @@ markdownView.addEventListener('keyup', event => {
   updateUserInterface(currentContent !== originalContent)
 })
 
+markdownView.addEventListener('contextmenu', event => {
+  event.preventDefault()
+  markdownContextMenu.popup()
+})
+
 openFileButton.addEventListener('click', () => {
   mainProcess.getFileFromUser(currentWindow)
+})
+
+ipcRenderer.on('save-markdown', () => {
+  mainProcess.saveMarkdown(currentWindow, filePath, markdownView.value)
+})
+ipcRenderer.on('save-html', () => {
+  mainProcess.saveHtml(currentWindow, filePath, markdownView.value)
 })
 
 ipcRenderer.on('file-opened', (event, file, content) => {
